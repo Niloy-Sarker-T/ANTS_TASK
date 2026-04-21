@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Drone Traffic Analyzer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Smart Drone Traffic Analyzer</h1>
+    <p class="subtitle">Upload an MP4 drone video, process it, and download the generated report.</p>
+
+    <div class="card">
+      <input type="file" id="videoFile" accept=".mp4" />
+      <button id="uploadBtn">Upload & Process</button>
+      <p id="message"></p>
+    </div>
+
+    <div class="card" id="progressSection" style="display:none;">
+      <h3>Processing Status</h3>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p id="progressText">0%</p>
+    </div>
+
+    <div class="card" id="resultSection" style="display:none;">
+      <h3>Processed Video</h3>
+      <video id="outputVideo" controls width="100%"></video>
+
+      <h3>Summary</h3>
+      <div id="summary"></div>
+
+      <div class="downloads">
+        <a id="csvLink" href="#" download>Download CSV</a>
+        <a id="xlsxLink" href="#" download>Download Excel</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

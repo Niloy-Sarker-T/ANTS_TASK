@@ -1,0 +1,1 @@
+def process_video(input_video, output_dir, progress_callback=None):
