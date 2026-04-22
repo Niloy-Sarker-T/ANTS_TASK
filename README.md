@@ -1,21 +1,31 @@
 # 🚁 Smart Drone Traffic Analyzer
 
-A proof-of-concept application for analyzing drone traffic videos using **YOLOv11 + ByteTrack**.  
-The system detects vehicles, tracks them across frames, counts **unique vehicles**, generates an annotated output video, and exports structured **CSV / Excel reports**.
+> A proof-of-concept application for analyzing drone traffic videos using **YOLOv11 + ByteTrack**.  
+> The system detects vehicles, tracks them across frames, counts **unique vehicles**, generates an annotated output video, and exports structured **CSV / Excel reports**.
 
 ---
 
-## 🎥 Demo Videos Used
+## 📋 Table of Contents
 
-### Video 1
-- Resolution: **1280 × 720**
-- FPS: **29.97**
-- Aspect Ratio: **1.78**
+- [Demo Videos](#-demo-videos)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Setup & Usage](#-setup--usage)
+- [How It Works](#-how-it-works)
+- [Experiments](#-experiments)
+- [Outputs](#-outputs)
+- [Project Structure](#-project-structure)
+- [Assumptions & Notes](#-assumptions--notes)
 
-### Video 2
-- Resolution: **1280 × 720**
-- FPS: **25.0**
-- Aspect Ratio: **1.78**
+---
+
+## 🎥 Demo Videos
+
+| Property       | Video 1     | Video 2     |
+|----------------|-------------|-------------|
+| Resolution     | 1280 × 720  | 1280 × 720  |
+| FPS            | 29.97       | 25.0        |
+| Aspect Ratio   | 1.78        | 1.78        |
 
 ---
 
@@ -31,182 +41,128 @@ The system detects vehicles, tracks them across frames, counts **unique vehicles
 
 ---
 
-## ⚙️ Model Used
+## 🧠 Architecture
 
-The final implementation uses:
+The system follows a modular 3-layer design.
+
+| Layer | Web | Desktop | Responsibilities |
+|-------|-----|---------|-----------------|
+| **UI** | HTML / CSS / JS | PyQt-based GUI | Video upload / selection, progress display, output preview, report download |
+| **Application** | FastAPI backend | QThread controller | Receiving user input, starting processing, tracking job state, returning output paths and results |
+| **Processing** | `processor.py` | `processor.py` | Frame-by-frame processing, YOLO detection, ByteTrack tracking, unique vehicle counting logic, CSV / Excel generation, annotated video export |
+
+> ✔ The design is reusable: the same `process_video()` pipeline works for both web and GUI versions.
+
+### Model
+
+```python
 model = YOLO("yolo11m.pt")
-I tested multiple YOLOv11 variants and found that YOLOv11m provides the best balance of:
-small-object recall
-stable detection quality
-class consistency
+```
 
+I tested multiple YOLOv11 variants and found that `yolo11m` provides the best balance of small-object recall, stable detection quality, and class consistency.
 
-🧠 Architecture Overview
+---
 
-The system follows a modular 3-layer design:
-1) UI Layer
-Web: HTML, CSS, JavaScript
-Desktop: PyQt-based GUI
+## 🚀 Setup & Usage
 
-Responsible for:
+### Install Dependencies
 
-video upload / selection
-progress display
-output preview
-report download
-2) Application Layer
-Web: FastAPI backend
-Desktop: Worker thread (QThread) controller
-
-Responsible for:
-
-receiving user input
-starting processing
-tracking job state
-returning output paths and results
-3) Processing Layer
-
-Implemented in processor.py.
-
-Responsible for:
-
-frame-by-frame processing
-YOLO detection
-ByteTrack tracking
-unique vehicle counting logic
-CSV / Excel generation
-annotated video export
-
-✔ The design is reusable: the same process_video() pipeline works for both web and GUI versions.
-
-
-
-
-
-
-🏃 How to Run
-🌐 Web Version
+```bash
 pip install -r requirements.txt
+```
+
+### Web Version
+
+```bash
 uvicorn app.main:app --reload
+```
 
-Then open:
+Then open: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-http://127.0.0.1:8000
+### Desktop Version
 
-🖥 GUI Version
+```bash
 python -m gui_app.main
+```
 
+---
 
+## ⚙️ How It Works
 
+### Tracking & Counting
 
-
-🚗 Tracking Methodology and Edge-Case Handling
-
-The pipeline uses YOLOv11 for detection and ByteTrack for multi-object tracking.
-ByteTrack assigns a persistent tracking ID to each vehicle across frames.
-On top of that, I implemented custom counting logic to ensure each vehicle is counted only once.
-
-🔢 Counting Strategy
+The pipeline uses **YOLOv11** for detection and **ByteTrack** for multi-object tracking. ByteTrack assigns a persistent tracking ID to each vehicle across frames. On top of that, I implemented custom counting logic to ensure each vehicle is counted only once.
 
 A vehicle is counted only if:
 
-it belongs to one of the target vehicle classes
-it has a valid persistent tracking ID
-it remains tracked for at least MIN_TRACK_FRAMES
-it has not already been counted
+- It belongs to one of the target vehicle classes
+- It has a valid persistent tracking ID
+- It remains tracked for at least `MIN_TRACK_FRAMES`
+- It has not already been counted
 
 To prevent duplicates, counted vehicle IDs are stored in a set:
 
+```python
 counted_ids = set()
+```
 
 Once a track ID is counted, it cannot increase the count again, even if it remains visible for many frames.
 
+### Two-Pass Detection Strategy
 
-
-
-🧩 Edge Cases Handled
-Stopping / slowing:
-Vehicle is still counted only once since counting is tied to the persistent track ID.
-Temporary occlusion:
-ByteTrack can preserve identity through short occlusions. If the same ID reappears, it is not counted again.
-Short-lived false detections:
-Suppressed using MIN_TRACK_FRAMES, so unstable detections do not instantly affect counts.
-Double-counting across frames:
-Prevented by combining ByteTrack IDs with custom count-once logic.
-📝 Note on Earlier Counting Logic
-
-During development, I tested a stricter line-crossing approach (vehicle counted only when bottom-center crosses a virtual line).
-While effective for "passing-through" scenarios, the final solution uses the stable-track counting approach, which was more reliable across the provided videos.
-
-
-
-
-
-🛠 Engineering Assumptions
-Off-the-shelf pretrained detection is sufficient (no custom training).
-Tracking-based counting is more reliable than raw per-frame counting.
-A small amount of undercounting is preferable to unstable overcounting.
-Generalizable logic is better than scene-specific hardcoding.
-Extremely small / shadowed / partially occluded vehicles may still be missed due to detector limits.
-🚙 Class Assumption
-
-SUV-like large vehicles may sometimes be classified as truck, depending on YOLO's output.
-This behavior is treated as acceptable and consistent with detector class mapping.
-
-🔬 Experimentation Summary
-
-I tested multiple configurations, including:
-
-CONF_THRESHOLD
-MIN_TRACK_FRAMES
-imgsz
-tiled inference
-ROI enhancement
-different YOLOv11 model sizes
-Key Findings
-MIN_TRACK_FRAMES had the highest impact on stability (3 was optimal).
-Aggressive detection settings improved recall slightly but increased unstable/duplicate counts.
-Tiled inference improved some tiny detections but introduced duplicates and false positives.
-ROI enhancement helped recover some vehicles but sometimes destabilized class consistency.
-YOLOv11m performed better overall than YOLOv11l on the provided videos.
-
-
-🚀 Final Improvement (Two-Pass Strategy)
 The final pipeline uses a two-pass strategy to balance small-object detection and train detection:
-Pass 1 (Main Tracking Pass)
-imgsz = 1280
-ByteTrack enabled
-Improves detection of small distant vehicles
-Pass 2 (Large Object Recovery Pass)
-imgsz = 640
-Triggered on selected frames
-Helps recover large train detections sometimes missed at higher input size
 
-This improved the balance between:
+| Pass | `imgsz` | Purpose |
+|------|---------|---------|
+| Pass 1 — Main Tracking Pass | `1280` | ByteTrack enabled — improves detection of small distant vehicles |
+| Pass 2 — Large Object Recovery Pass | `640` | Triggered on selected frames — helps recover large train detections sometimes missed at higher input size |
 
-small vehicle recall
-train recovery
-count stability
+This improved the balance between small vehicle recall, train recovery, and count stability.
 
+### Edge Cases Handled
 
-📦 Outputs
+| Scenario | Handling |
+|----------|----------|
+| Stopping / slowing | Vehicle is still counted only once since counting is tied to the persistent track ID |
+| Temporary occlusion | ByteTrack can preserve identity through short occlusions. If the same ID reappears, it is not counted again |
+| Short-lived false detections | Suppressed using `MIN_TRACK_FRAMES`, so unstable detections do not instantly affect counts |
+| Double-counting across frames | Prevented by combining ByteTrack IDs with custom count-once logic |
+
+> **Note on Earlier Counting Logic:** During development, I tested a stricter line-crossing approach (vehicle counted only when bottom-center crosses a virtual line). While effective for "passing-through" scenarios, the final solution uses the stable-track counting approach, which was more reliable across the provided videos.
+
+---
+
+## 🔬 Experiments
+
+I tested multiple configurations, including `CONF_THRESHOLD`, `MIN_TRACK_FRAMES`, `imgsz`, tiled inference, ROI enhancement, different YOLOv11 model sizes.
+
+| Variable | Finding |
+|----------|---------|
+| `MIN_TRACK_FRAMES` | Highest impact on stability — **3 was optimal** |
+| Aggressive detection settings | Improved recall slightly but increased unstable/duplicate counts |
+| Tiled inference | Improved some tiny detections but introduced duplicates and false positives |
+| ROI enhancement | Helped recover some vehicles but sometimes destabilized class consistency |
+| Model size comparison | `yolo11m` performed better overall than `yolo11l` on the provided videos |
+
+---
+
+## 📦 Outputs
 
 For each processed video, the system generates:
 
-Annotated MP4 output video
-CSV report
-Excel report containing:
-Summary sheet
-Vehicle detection log
-Time-series breakdown
+| Output | Description |
+|--------|-------------|
+| Annotated `.mp4` | Output video with bounding boxes, IDs, and class labels |
+| `.csv` report | Flat structured detection log |
+| `.xlsx` report | Three sheets: Summary, Vehicle Detection Log, Time-Series Breakdown |
 
-The report includes:
+The report includes total unique vehicle count, breakdown by vehicle type, processing duration, and frame number and timestamp for detections.
 
-total unique vehicle count
-breakdown by vehicle type
-processing duration
-frame number and timestamp for detections
-📁 Repository Structure
+---
+
+## 📁 Project Structure
+
+```
 smart-drone-traffic-analyzer/
 │
 ├── app/
@@ -223,14 +179,15 @@ smart-drone-traffic-analyzer/
 ├── outputs/
 ├── requirements.txt
 └── README.md
-🏁 Final Notes
+```
 
-This project prioritizes:
+---
 
-stable tracking
-duplicate prevention
-structured reporting
-practical generalization across multiple traffic scenes
+## 📝 Assumptions & Notes
 
-The final system is not simply "detect every frame and count".
-Instead, it combines detection + tracking + custom counting logic to produce a more reliable estimate of unique vehicles in the scene.
+- Off-the-shelf pretrained detection is sufficient (no custom training)
+- Tracking-based counting is more reliable than raw per-frame counting
+- A small amount of undercounting is preferable to unstable overcounting
+- Generalizable logic is better than scene-specific hardcoding
+- Extremely small / shadowed / partially occluded vehicles may still be missed due to detector limits
+- SUV-like large vehicles may sometimes be classified as `truck`, depending on YOLO's output — this behavior is treated as acceptable and consistent with detector class mapping
