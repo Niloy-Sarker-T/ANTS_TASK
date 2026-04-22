@@ -184,10 +184,4 @@ smart-drone-traffic-analyzer/
 ---
 
 ## 📝 Assumptions & Notes
-
-- Off-the-shelf pretrained detection is sufficient (no custom training)
-- Tracking-based counting is more reliable than raw per-frame counting
-- A small amount of undercounting is preferable to unstable overcounting
-- Generalizable logic is better than scene-specific hardcoding
-- Extremely small / shadowed / partially occluded vehicles may still be missed due to detector limits
-- SUV-like large vehicles may sometimes be classified as `truck`, depending on YOLO's output — this behavior is treated as acceptable and consistent with detector class mapping
+- SUV-like large vehicles is classified as `truck`
